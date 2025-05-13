@@ -56,12 +56,7 @@ jobs:
           components: clippy
       - run: cargo install cargo-hack
       - run: git config user.name "github-runner" && git config user.email "<>"
-      # examples and tests require `alloc`, since they make extensive use of `Box` etc.
       - run: git rebase --exec 'cargo hack --clean-per-run --feature-powerset clippy --all-targets --locked' --exec 'cargo clean' --root
-        env:
-          RUSTFLAGS: "-Dwarnings"
-      # the core lib does not, so also check that without the alloc feature.
-      - run: git rebase --exec 'cargo hack --clean-per-run --feature-powerset clippy --lib --locked' --exec 'cargo clean' --root
         env:
           RUSTFLAGS: "-Dwarnings"
   test:
