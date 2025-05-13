@@ -1,0 +1,30 @@
+[package]
+name = "lkml"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85.1"
+
+authors = ["y86-dev"]
+license = "MIT OR Apache-2.0"
+description = "Program to download and assort emails from mailing lists supported by `lei`"
+readme = "README.md"
+
+documentation = "https://docs.rs/lkml"
+repository = "https://github.com/y86-dev/lkml"
+keywords = ["mailing-list", "mail", "email"]
+categories = ["command-line-utilities", "email"]
+
+[dependencies]
+anyhow = "1.0.98"
+clap = { version = "4.5.37", features = ["derive"] }
+directories-next = "2.0.0"
+maildir = "0.6.4"
+# maildir uses "^0.14"
+mailparse = "0.14.1"
+regex = "1.11.1"
+serde = { version = "1.0.219", features = ["derive"] }
+tempdir = "0.3.7"
+thiserror = "2.0.12"
+toml = "0.8.22"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }

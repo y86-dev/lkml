@@ -1,0 +1,110 @@
+permissions:
+  contents: read
+on:
+  pull_request:
+  workflow_dispatch:
+
+name: CI
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{github.event.pull_request.commits}}
+          ref: ${{github.event.pull_request.head.sha}}
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+      - run: git config user.name "github-runner" && git config user.email "<>"
+      - run: git rebase --exec 'cargo fmt --check --all' --root
+  readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{github.event.pull_request.commits}}
+          ref: ${{github.event.pull_request.head.sha}}
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo install cargo-rdme
+      - run: git config user.name "github-runner" && git config user.email "<>"
+      - run: git rebase --exec 'cargo rdme --check' --root
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{github.event.pull_request.commits}}
+          ref: ${{github.event.pull_request.head.sha}}
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      - run: git config user.name "github-runner" && git config user.email "<>"
+      - run: git rebase --exec 'cargo doc --all-features --no-deps' --root
+        env:
+          RUSTFLAGS: "-Dwarnings"
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{github.event.pull_request.commits}}
+          ref: ${{github.event.pull_request.head.sha}}
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+      - run: cargo install cargo-hack
+      - run: git config user.name "github-runner" && git config user.email "<>"
+      # examples and tests require `alloc`, since they make extensive use of `Box` etc.
+      - run: git rebase --exec 'cargo hack --clean-per-run --feature-powerset clippy --all-targets --locked' --exec 'cargo clean' --root
+        env:
+          RUSTFLAGS: "-Dwarnings"
+      # the core lib does not, so also check that without the alloc feature.
+      - run: git rebase --exec 'cargo hack --clean-per-run --feature-powerset clippy --lib --locked' --exec 'cargo clean' --root
+        env:
+          RUSTFLAGS: "-Dwarnings"
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      - run: git config user.name "github-runner" && git config user.email "<>"
+      - run: git rebase --exec 'cargo test --locked --all-targets' --root
+        env:
+          RUSTFLAGS: "-Dwarnings"
+      # doctests are strangely not included in --all-targets
+      - run: git rebase --exec 'cargo test --locked --doc' --root
+        env:
+          RUSTFLAGS: "-Dwarnings"
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{github.event.pull_request.commits}}
+          ref: ${{github.event.pull_request.head.sha}}
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cargo-hack
+      - run: git config user.name "github-runner" && git config user.email "<>"
+      - run: git rebase --exec 'cargo hack --clean-per-run --feature-powerset --version-range 1.85.1.. --clean-per-version check --locked --all-targets' --exec 'cargo clean' --root
+        env:
+          RUSTFLAGS: "-Dwarnings"
+  link-heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{github.event.pull_request.commits}}
+          ref: ${{github.event.pull_request.head.sha}}
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      - run: sudo apt-get install -y linkchecker
+      - run: git config user.name "github-runner" && git config user.email "<>"
+      - run: git rebase --exec 'cargo doc --all-features --no-deps && linkchecker target/doc/*/*.html' --root
+        env:
+          RUSTFLAGS: "-Dwarnings"

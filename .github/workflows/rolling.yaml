@@ -1,0 +1,49 @@
+permissions:
+  contents: read
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '7 7 * * *'
+  workflow_dispatch:
+
+name: rolling
+jobs:
+  stable:
+    runs-on: ubuntu-latest
+    name: stable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --locked --all-targets
+        env:
+          RUSTFLAGS: "-Dwarnings"
+      - run: cargo test --locked --doc
+        env:
+          RUSTFLAGS: "-Dwarnings"
+  nightly:
+    runs-on: ubuntu-latest
+    name: nightly
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo test --locked --all-targets
+        env:
+          RUSTFLAGS: "-Dwarnings"
+      - run: cargo test --locked --doc
+        env:
+          RUSTFLAGS: "-Dwarnings"
+  updated:
+    runs-on: ubuntu-latest
+    name: nightly / updated
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo update
+      - run: cargo test --locked --all-targets
+        env:
+          RUSTFLAGS: "-Ddeprecated -Dwarnings"
+      - run: cargo test --locked --doc
+        env:
+          RUSTFLAGS: "-Ddeprecated -Dwarnings"
