@@ -1,3 +1,9 @@
+[![Crates.io](https://img.shields.io/crates/v/lkml.svg)](https://crates.io/crates/lkml)
+[![Documentation](https://docs.rs/lkml/badge.svg)](https://docs.rs/lkml/)
+[![Dependency status](https://deps.rs/repo/github/y86-dev/lkml/status.svg)](https://deps.rs/repo/github/y86-dev/lkml)
+![License](https://img.shields.io/crates/l/lkml)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/y86-dev/lkml/ci.yml)
+
 <!-- cargo-rdme start -->
 
 # `lkml`
