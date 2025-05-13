@@ -96,6 +96,6 @@ jobs:
           components: rust-src
       - run: sudo apt-get install -y linkchecker
       - run: git config user.name "github-runner" && git config user.email "<>"
-      - run: git rebase --exec 'cargo doc --all-features --no-deps && linkchecker target/doc/*/*.html' --root
+      - run: git rebase --exec 'cargo doc --all-features && linkchecker target/doc/lkml/*.html' --root
         env:
           RUSTFLAGS: "-Dwarnings"
