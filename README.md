@@ -21,7 +21,9 @@ care!
 
 ## Configuration
 
-See [`Config`](https://docs.rs/lkml/latest/lkml/config/struct.Config.html) for the various configuration options. The location of
-the config file is `~/.config/lkml/config.toml` on linux.
+See [`Config`] for the various configuration options. The location of the config file is
+`~/.config/lkml/config.toml` on linux.
 
 <!-- cargo-rdme end -->
+
+[`Config`]: https://docs.rs/lkml/latest/lkml/config/struct.Config.html

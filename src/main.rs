@@ -13,8 +13,8 @@
 //!
 //! ## Configuration
 //!
-//! See [`Config`](crate::config::Config) for the various configuration options. The location of
-//! the config file is `~/.config/lkml/config.toml` on linux.
+//! See [`Config`] for the various configuration options. The location of the config file is
+//! `~/.config/lkml/config.toml` on linux.
 
 use std::{
     io,
