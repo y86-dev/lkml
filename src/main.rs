@@ -5,11 +5,10 @@
 //!
 //! <div class="warning">
 //!
-//! **WARNING**: this program is still pretty experimental and might break your email, use with
+//! **WARNING**: this program is still pretty experimental and might break your emails, use with
 //! care!
 //!
 //! </div>
-//!
 //!
 //! ## Configuration
 //!

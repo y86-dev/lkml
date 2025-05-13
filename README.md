@@ -4,6 +4,9 @@
 ![License](https://img.shields.io/crates/l/lkml)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/y86-dev/lkml/ci.yml)
 
+> [!WARNING]
+> This program is still pretty experimental and might break your emails, use with care!
+
 <!-- cargo-rdme start -->
 
 # `lkml`
@@ -13,11 +16,10 @@ maildirs based on custom criteria.
 
 <div class="warning">
 
-**WARNING**: this program is still pretty experimental and might break your email, use with
+**WARNING**: this program is still pretty experimental and might break your emails, use with
 care!
 
 </div>
-
 
 ## Configuration
 
