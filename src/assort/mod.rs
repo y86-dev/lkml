@@ -1,5 +1,6 @@
 use std::{collections::HashMap, io, rc::Rc};
 
+use folder::DropReason;
 use maildir::{MailEntry, MailEntryError, Maildir};
 use mailparse::{MailHeaderMap, MailParseError};
 use tempdir::TempDir;
@@ -49,6 +50,7 @@ pub fn run(new_dir: TempDir, main: Maildir, cfg: &Config) -> Result<(), Error> {
     for new in &new {
         assort(new, &indexed, &mut actions, &folders, cfg, rest)?;
     }
+    info!("initial assortment complete");
     fixup_thread_siblings(&new, &indexed, &mut actions, &folders, cfg)?;
     perform(actions, &folders)?;
     // keep it alive until at least here.
@@ -144,7 +146,7 @@ fn index<'a>(
                 .any(|id| cfg.quirks.deduplicate.contains(id))
             {
                 trace!("dropping {} because of duplicate & wrong list", mail.id);
-                actions.insert(mail.clone(), Action::delete());
+                actions.insert(mail.clone(), Action::delete(DropReason::DuplicateQuirk));
             } else if mails
                 .iter()
                 .all(|m| mail.parsed.raw_bytes == m.parsed.raw_bytes)
@@ -155,7 +157,7 @@ fn index<'a>(
                     .unwrap()?
             {
                 trace!("dropping verbatim copy {}", mail.id);
-                actions.insert(mail.clone(), Action::delete());
+                actions.insert(mail.clone(), Action::delete(DropReason::VerbatimCopy));
             } else {
                 error!(
                     "new email received with same id as existing, pls implement!\n{:#?} vs\n{}\n\n {:#?}",
@@ -270,7 +272,7 @@ fn assort<'a>(
             })
             .unwrap_or(false)
     {
-        action = Action::delete();
+        action = Action::delete(DropReason::Ignored);
     }
 
     compute_flags(new, &mut action, folders, cfg)?;
@@ -295,7 +297,7 @@ fn compute_flags<'a>(
     cfg: &Config,
 ) -> Result<(), Error> {
     match action.dest() {
-        Dest::Drop => {}
+        Dest::Drop(_) => {}
         Dest::Folder(i) => {
             let body = mail.parsed.get_body()?;
             if folders[i].mark_read {
@@ -380,7 +382,7 @@ fn perform<'a>(actions: HashMap<Rc<Mail<'a>>, Action>, folders: &[Folder]) -> Re
         let id = &mail.maildir_id;
         let flags = action.flags();
         let dest = match action.dest() {
-            Dest::Drop => {
+            Dest::Drop(_) => {
                 std::fs::remove_file(&mail.path).map_err(Error::Fs)?;
                 info!("deleting `{id}`");
                 continue;
