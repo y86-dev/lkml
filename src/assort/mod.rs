@@ -1,11 +1,15 @@
-use std::{collections::HashMap, io, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    io,
+    rc::Rc,
+};
 
 use folder::DropReason;
 use maildir::{MailEntry, MailEntryError, Maildir};
 use mailparse::{MailHeaderMap, MailParseError};
 use tempdir::TempDir;
 use thiserror::Error;
-use tracing::{error, info, trace};
+use tracing::{error, info, trace, warn};
 
 use crate::{
     assort::{
@@ -47,8 +51,17 @@ pub fn run(new_dir: TempDir, main: Maildir, cfg: &Config) -> Result<(), Error> {
         new,
         mut actions,
     } = index(new_count, &mut mails, cfg)?;
+    let mut new_threads = HashSet::new();
     for new in &new {
-        assort(new, &indexed, &mut actions, &folders, cfg, rest)?;
+        assort(
+            new,
+            &indexed,
+            &mut actions,
+            &folders,
+            cfg,
+            rest,
+            &mut new_threads,
+        )?;
     }
     info!("initial assortment complete");
     fixup_thread_siblings(&new, &indexed, &mut actions, &folders, cfg)?;
@@ -208,21 +221,25 @@ fn assort<'a>(
     folders: &[Folder],
     cfg: &Config,
     rest: usize,
+    new_threads: &mut HashSet<Rc<Mail<'a>>>,
 ) -> Result<Action, Error> {
     if let Some(action) = actions.get(new) {
         return Ok(*action);
     }
-    let mut parent_is_new = false;
+    let mut is_new_thread = false;
     let mut action = None;
     if let Some(parent) = new.parent.as_ref() {
         if let Some(parents) = indexed.get(parent) {
             let parent = &parents[0];
             match &parent.typ {
                 Type::New => {
-                    parent_is_new = true;
+                    if new_threads.contains(parent) {
+                        is_new_thread = true;
+                        new_threads.insert(new.clone());
+                    }
                     let parent_action =
                         actions.get(parent).copied().map(Ok).unwrap_or_else(|| {
-                            assort(parent, indexed, actions, folders, cfg, rest)
+                            assort(parent, indexed, actions, folders, cfg, rest, new_threads)
                         })?;
                     action = Some(parent_action.with_cleared_flags());
                 }
@@ -230,10 +247,18 @@ fn assort<'a>(
                     action = Some(Action::folder(*id));
                 }
             }
+        } else {
+            warn!(
+                "parent mail with id `{parent}` not found in any folder (parent of {})",
+                new.path.display()
+            );
+            new_threads.insert(new.clone());
         }
+    } else {
+        new_threads.insert(new.clone());
     }
     let body = new.parsed.get_body()?;
-    if action.is_none() || parent_is_new {
+    if action.is_none() || is_new_thread {
         let folders = if let Some(action) = action {
             folders
                 .iter()

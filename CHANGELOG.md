@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+* New emails with existing grandparents, but new parents being sorted into the wrong folders.
+
 ## [0.1.0] - TODO: YYYY-MM-DD
 
 Initial version.
