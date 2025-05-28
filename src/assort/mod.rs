@@ -1,10 +1,15 @@
-use std::{collections::HashMap, io, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    io,
+    rc::Rc,
+};
 
+use folder::DropReason;
 use maildir::{MailEntry, MailEntryError, Maildir};
 use mailparse::{MailHeaderMap, MailParseError};
 use tempdir::TempDir;
 use thiserror::Error;
-use tracing::{error, info, trace};
+use tracing::{error, info, trace, warn};
 
 use crate::{
     assort::{
@@ -46,9 +51,19 @@ pub fn run(new_dir: TempDir, main: Maildir, cfg: &Config) -> Result<(), Error> {
         new,
         mut actions,
     } = index(new_count, &mut mails, cfg)?;
+    let mut new_threads = HashSet::new();
     for new in &new {
-        assort(new, &indexed, &mut actions, &folders, cfg, rest)?;
+        assort(
+            new,
+            &indexed,
+            &mut actions,
+            &folders,
+            cfg,
+            rest,
+            &mut new_threads,
+        )?;
     }
+    info!("initial assortment complete");
     fixup_thread_siblings(&new, &indexed, &mut actions, &folders, cfg)?;
     perform(actions, &folders)?;
     // keep it alive until at least here.
@@ -144,7 +159,7 @@ fn index<'a>(
                 .any(|id| cfg.quirks.deduplicate.contains(id))
             {
                 trace!("dropping {} because of duplicate & wrong list", mail.id);
-                actions.insert(mail.clone(), Action::delete());
+                actions.insert(mail.clone(), Action::delete(DropReason::DuplicateQuirk));
             } else if mails
                 .iter()
                 .all(|m| mail.parsed.raw_bytes == m.parsed.raw_bytes)
@@ -155,7 +170,7 @@ fn index<'a>(
                     .unwrap()?
             {
                 trace!("dropping verbatim copy {}", mail.id);
-                actions.insert(mail.clone(), Action::delete());
+                actions.insert(mail.clone(), Action::delete(DropReason::VerbatimCopy));
             } else {
                 error!(
                     "new email received with same id as existing, pls implement!\n{:#?} vs\n{}\n\n {:#?}",
@@ -206,21 +221,25 @@ fn assort<'a>(
     folders: &[Folder],
     cfg: &Config,
     rest: usize,
+    new_threads: &mut HashSet<Rc<Mail<'a>>>,
 ) -> Result<Action, Error> {
     if let Some(action) = actions.get(new) {
         return Ok(*action);
     }
-    let mut parent_is_new = false;
+    let mut is_new_thread = false;
     let mut action = None;
     if let Some(parent) = new.parent.as_ref() {
         if let Some(parents) = indexed.get(parent) {
             let parent = &parents[0];
             match &parent.typ {
                 Type::New => {
-                    parent_is_new = true;
+                    if new_threads.contains(parent) {
+                        is_new_thread = true;
+                        new_threads.insert(new.clone());
+                    }
                     let parent_action =
                         actions.get(parent).copied().map(Ok).unwrap_or_else(|| {
-                            assort(parent, indexed, actions, folders, cfg, rest)
+                            assort(parent, indexed, actions, folders, cfg, rest, new_threads)
                         })?;
                     action = Some(parent_action.with_cleared_flags());
                 }
@@ -228,10 +247,18 @@ fn assort<'a>(
                     action = Some(Action::folder(*id));
                 }
             }
+        } else {
+            warn!(
+                "parent mail with id `{parent}` not found in any folder (parent of {})",
+                new.path.display()
+            );
+            new_threads.insert(new.clone());
         }
+    } else {
+        new_threads.insert(new.clone());
     }
     let body = new.parsed.get_body()?;
-    if action.is_none() || parent_is_new {
+    if action.is_none() || is_new_thread {
         let folders = if let Some(action) = action {
             folders
                 .iter()
@@ -270,7 +297,7 @@ fn assort<'a>(
             })
             .unwrap_or(false)
     {
-        action = Action::delete();
+        action = Action::delete(DropReason::Ignored);
     }
 
     compute_flags(new, &mut action, folders, cfg)?;
@@ -295,7 +322,7 @@ fn compute_flags<'a>(
     cfg: &Config,
 ) -> Result<(), Error> {
     match action.dest() {
-        Dest::Drop => {}
+        Dest::Drop(_) => {}
         Dest::Folder(i) => {
             let body = mail.parsed.get_body()?;
             if folders[i].mark_read {
@@ -380,7 +407,7 @@ fn perform<'a>(actions: HashMap<Rc<Mail<'a>>, Action>, folders: &[Folder]) -> Re
         let id = &mail.maildir_id;
         let flags = action.flags();
         let dest = match action.dest() {
-            Dest::Drop => {
+            Dest::Drop(_) => {
                 std::fs::remove_file(&mail.path).map_err(Error::Fs)?;
                 info!("deleting `{id}`");
                 continue;

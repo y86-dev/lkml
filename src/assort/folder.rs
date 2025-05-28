@@ -55,14 +55,21 @@ pub struct Action {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Dest {
-    Drop,
+    Drop(DropReason),
     Folder(usize),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DropReason {
+    DuplicateQuirk,
+    VerbatimCopy,
+    Ignored,
 }
 
 impl Dest {
     pub fn max_prio(a: Self, b: Self) -> Option<Self> {
         match (a, b) {
-            (Dest::Drop, _) | (_, Dest::Drop) => None,
+            (Dest::Drop(_), _) | (_, Dest::Drop(_)) => None,
             (Dest::Folder(a), Dest::Folder(b)) => Some(Dest::Folder(a.min(b))),
         }
     }
@@ -86,15 +93,15 @@ impl From<Dest> for Option<Type> {
     fn from(value: Dest) -> Self {
         match value {
             Dest::Folder(id) => Some(Type::Folder(id)),
-            Dest::Drop => None,
+            Dest::Drop(_) => None,
         }
     }
 }
 
 impl Action {
-    pub fn delete() -> Self {
+    pub fn delete(reason: DropReason) -> Self {
         Self {
-            dest: Dest::Drop,
+            dest: Dest::Drop(reason),
             mark_read: false,
             mark_flagged: false,
         }
@@ -132,7 +139,7 @@ impl Action {
 
     pub fn folder_idx(&self) -> Option<usize> {
         match self.dest {
-            Dest::Drop => None,
+            Dest::Drop(_) => None,
             Dest::Folder(id) => Some(id),
         }
     }
