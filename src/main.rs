@@ -34,6 +34,10 @@ mod assort;
 mod config;
 mod git;
 mod lei;
+mod util;
+
+type BoxStr = Box<str>;
+type BoxPath = Box<Path>;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -66,7 +70,7 @@ fn run(interval: Interval, store: &Path, config: &Config) -> Result<ExitCode> {
             git::pull(store)?;
         }
     }
-    let new = lei::query(interval, &config.query)?;
+    let new = lei::query(interval, &config.query, config.no_lei)?;
     assort::run(new, Maildir::from(store.to_owned()), config)?;
     let mut did_commit = false;
     if config.git.is_some() && !git::is_clean(store)? {

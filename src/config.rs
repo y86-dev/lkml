@@ -24,6 +24,12 @@ pub struct Config {
     /// ```
     pub query: String,
 
+    /// Instead of invokind `lei`, download and expand the mbox manually.
+    ///
+    /// WARNING: this is unstable!!
+    #[serde(default)]
+    pub no_lei: bool,
+
     /// Quirk fixes for mail clients, mailing lists etc.
     #[serde(default)]
     pub quirks: Quirks,

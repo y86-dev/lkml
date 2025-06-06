@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     io,
+    path::PathBuf,
     rc::Rc,
 };
 
@@ -12,6 +13,7 @@ use thiserror::Error;
 use tracing::{error, info, trace, warn};
 
 use crate::{
+    BoxPath, BoxStr,
     assort::{
         folder::{Action, Dest, Folder},
         mail::{Mail, Type},
@@ -24,8 +26,11 @@ mod mail;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("While trying to read a mail file from disk: {0}")]
-    MailIO(io::Error),
+    #[error("While trying to read a mail file from disk at {path:?}: {error}")]
+    MailIO {
+        path: Option<BoxPath>,
+        error: io::Error,
+    },
     #[error("while trying to modify the filesystem: {0}")]
     Fs(io::Error),
     #[error("internal error")]
@@ -103,15 +108,23 @@ fn collect_mails(new: Maildir, main: Maildir, cfg: &Config) -> Result<Collected,
             f.maildir
                 .list_new()
                 .chain(f.maildir.list_cur())
-                .map(move |m| (m, i))
+                .map(move |m| (m, i, f))
         })
-        .map(|(m, i)| Ok::<_, Error>((m.map_err(Error::MailIO)?, Type::Folder(i))))
+        .map(|(m, i, f)| {
+            Ok::<_, Error>((
+                m.map_err(|error| Error::MailIO {
+                    path: Some(f.maildir.path().into()),
+                    error,
+                })?,
+                Type::Folder(i),
+            ))
+        })
         .collect::<Result<Vec<_>, _>>()?;
     let mut dupe = Vec::with_capacity(100);
     let mut new_count = 0;
     for mail in newmail.list_cur().chain(newmail.list_new()) {
         new_count += 1;
-        let mut mail = mail.map_err(Error::MailIO)?;
+        let mut mail = mail.map_err(|error| Error::MailIO { path: None, error })?;
         if mail
             .headers()?
             .get_all_values("list-id")
@@ -173,10 +186,15 @@ fn index<'a>(
                 actions.insert(mail.clone(), Action::delete(DropReason::VerbatimCopy));
             } else {
                 error!(
-                    "new email received with same id as existing, pls implement!\n{:#?} vs\n{}\n\n {:#?}",
+                    "new email received with same id as existing, pls implement!\n\
+                    {:#?}\n\
+                    vs: `{}`\n\
+                    Message IDs: {msg_ids:?}\n\
+                    List IDs: {list_ids:?}",
                     mails.iter().map(|m| m.path.display()).collect::<Vec<_>>(),
                     mail.path.display(),
-                    mail.parsed.headers.get_all_values("list-id")
+                    msg_ids = mail.parsed.headers.get_all_values("Message-ID"),
+                    list_ids = mail.parsed.headers.get_all_values("list-id"),
                 );
                 error = true
             }
