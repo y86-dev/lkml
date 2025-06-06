@@ -18,6 +18,7 @@ categories = ["command-line-utilities", "email"]
 anyhow = "1.0.98"
 clap = { version = "4.5.37", features = ["derive"] }
 directories-next = "2.0.0"
+flate2 = "1.1.1"
 maildir = "0.6.4"
 # maildir uses "^0.14"
 mailparse = "0.14.1"
@@ -28,3 +29,8 @@ thiserror = "2.0.12"
 toml = "0.8.22"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+ureq = "3.0.11"
+
+[dev-dependencies]
+indoc = "2.0.6"
+pretty_assertions = "1.4.1"
